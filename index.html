@@ -1,24 +1,204 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Window Size Monitor</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game of Life · R‑pentomino (1/100th height)</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;          /* no scrollbars */
+      background: #111;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #1a1a1a;
+      image-rendering: crisp-edges; /* keep cells sharp */
+    }
+  </style>
 </head>
 <body>
-    <h1>Page Dimensions</h1>
-    <div id="info">Width: <span id="w"></span>px, Height: <span id="h"></span>px</div>
+  <canvas id="lifeCanvas"></canvas>
 
-    <script>
-        const w = document.getElementById('w');
-        const h = document.getElementById('h');
+  <script>
+    (function() {
+      const canvas = document.getElementById('lifeCanvas');
+      const ctx = canvas.getContext('2d');
 
-        function update() {
-            w.textContent = window.innerWidth;
-            h.textContent = window.innerHeight;
-            console.log('Resized: ' + window.innerWidth + 'x' + window.innerHeight);
+      /* ---- sizing & grid ---- */
+      let width = 0, height = 0;          // canvas pixel size
+      let cellSize = 0;                  // 1/100th of height
+      let cols = 0, rows = 0;
+
+      // grid state: two 1D arrays (flat) for speed
+      let grid = [];
+      let next = [];
+
+      // CORRECT R‑pentomino relative coordinates (5 cells)
+      const R_PENTO = [
+        [0, 1], [0, 2],   // top row
+        [1, 0], [1, 1],   // middle row
+        [2, 1]            // bottom row
+      ];
+
+      function resizeAndReset() {
+        // 1. fresh window dimensions
+        width = window.innerWidth;
+        height = window.innerHeight;
+
+        // 2. cell size = 1/100th of height (floor to avoid sub‑pixel gaps)
+        cellSize = Math.floor(height / 100);
+        // safety: minimum 2px so we can see something
+        if (cellSize < 2) cellSize = 2;
+
+        // 3. compute grid size
+        cols = Math.floor(width / cellSize);
+        rows = Math.floor(height / cellSize);
+
+        // 4. set canvas pixel size (actual resolution)
+        canvas.width = cols * cellSize;
+        canvas.height = rows * cellSize;
+
+        // 5. allocate arrays (flattened: index = y * cols + x)
+        grid = new Uint8Array(cols * rows);
+        next = new Uint8Array(cols * rows);
+
+        // 6. seed R‑pentomino in the centre
+        const cx = Math.floor(cols / 2);
+        const cy = Math.floor(rows / 2);
+
+        for (let [dx, dy] of R_PENTO) {
+          const x = cx + dx;
+          const y = cy + dy;
+          if (x >= 0 && x < cols && y >= 0 && y < rows) {
+            grid[y * cols + x] = 1;
+          }
         }
 
-        window.addEventListener('resize', update);
-        update();
-    </script>
+        // 7. draw the initial frame
+        drawGrid();
+      }
+
+      /* ---- draw current grid (black & white) ---- */
+      function drawGrid() {
+        const w = canvas.width;
+        const h = canvas.height;
+
+        // clear with dark background
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, w, h);
+
+        // draw living cells as white squares
+        ctx.fillStyle = '#f0f0f0';
+        const size = cellSize;
+
+        // iterate over rows & cols
+        for (let y = 0; y < rows; y++) {
+          const rowOffset = y * cols;
+          for (let x = 0; x < cols; x++) {
+            if (grid[rowOffset + x] === 1) {
+              ctx.fillRect(x * size, y * size, size, size);
+            }
+          }
+        }
+      }
+
+      /* ---- Game of Life step (next generation) with wrap-around ---- */
+      function nextGeneration() {
+        const total = cols * rows;
+
+        // reset next array to zero
+        next.fill(0);
+
+        // iterate over each cell
+        for (let y = 0; y < rows; y++) {
+          const rowOffset = y * cols;
+          const yPrev = (y - 1 + rows) % rows;
+          const yNext = (y + 1) % rows;
+          const rowPrev = yPrev * cols;
+          const rowNext = yNext * cols;
+
+          for (let x = 0; x < cols; x++) {
+            const xPrev = (x - 1 + cols) % cols;
+            const xNext = (x + 1) % cols;
+
+            // count live neighbours (8 neighbours, wrap-around)
+            let live = 0;
+            // row above
+            live += grid[rowPrev + xPrev];
+            live += grid[rowPrev + x];
+            live += grid[rowPrev + xNext];
+            // same row
+            live += grid[rowOffset + xPrev];
+            live += grid[rowOffset + xNext];
+            // row below
+            live += grid[rowNext + xPrev];
+            live += grid[rowNext + x];
+            live += grid[rowNext + xNext];
+
+            const idx = rowOffset + x;
+            const current = grid[idx];
+
+            // apply Conway's rules
+            if (current === 1) {
+              if (live === 2 || live === 3) next[idx] = 1;
+              // else stays 0 (death)
+            } else {
+              if (live === 3) next[idx] = 1;
+            }
+          }
+        }
+
+        // swap grids (grid = next, next = old grid)
+        [grid, next] = [next, grid];
+      }
+
+      /* ---- animation loop (0.5s step) ---- */
+      let timeoutId = null;
+
+      function stepAndDraw() {
+        nextGeneration();
+        drawGrid();
+
+        // schedule next step after 500 ms
+        timeoutId = setTimeout(stepAndDraw, 5);
+      }
+
+      /* ---- stop / restart on resize ---- */
+      function handleResize() {
+        // clear pending timeout to avoid conflicts
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+
+        // recalc everything, re‑seed R‑pentomino
+        resizeAndReset();
+
+        // restart the loop (first step after 500ms)
+        timeoutId = setTimeout(stepAndDraw, 500);
+      }
+
+      /* ---- initialise and start ---- */
+      function init() {
+        resizeAndReset();
+        // start loop after 500 ms
+        timeoutId = setTimeout(stepAndDraw, 500);
+        // listen to resize events
+        window.addEventListener('resize', handleResize);
+      }
+
+      // go
+      init();
+    })();
+  </script>
 </body>
 </html>
