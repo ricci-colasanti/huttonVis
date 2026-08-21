@@ -6,19 +6,14 @@
 <body>
     <h1>Page Dimensions</h1>
     <div id="info">Width: <span id="w"></span>px, Height: <span id="h"></span>px</div>
-    <div id="events">Resize count: <span id="c">0</span></div>
 
     <script>
         const w = document.getElementById('w');
         const h = document.getElementById('h');
-        const c = document.getElementById('c');
-        let count = 0;
 
         function update() {
             w.textContent = window.innerWidth;
             h.textContent = window.innerHeight;
-            count++;
-            c.textContent = count;
             console.log('Resized: ' + window.innerWidth + 'x' + window.innerHeight);
         }
 
