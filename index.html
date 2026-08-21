@@ -93,11 +93,11 @@
         const h = canvas.height;
 
         // clear with dark background
-        ctx.fillStyle = '#1a1a1a';
+        ctx.fillStyle = '#FFFDD0';
         ctx.fillRect(0, 0, w, h);
 
         // draw living cells as white squares
-        ctx.fillStyle = '#f0f0f0';
+        ctx.fillStyle = '#333333';
         const size = cellSize;
 
         // iterate over rows & cols
@@ -169,7 +169,7 @@
         drawGrid();
 
         // schedule next step after 500 ms
-        timeoutId = setTimeout(stepAndDraw, 5);
+        timeoutId = setTimeout(stepAndDraw, 50);
       }
 
       /* ---- stop / restart on resize ---- */
