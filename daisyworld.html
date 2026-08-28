@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daisyworld Cellular Automata</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #eeeeee;
+            width: 100vw;
+            height: 100vh;
+        }
+        canvas {
+            display: block;
+            border: none;
+            width: 100%;
+            height: 100%;
+        }
+        /* Overlay panel */
+        #controlsPanel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 100;
+            display: none;
+            min-width: 300px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <!-- Controls Panel -->
+    <div id="controlsPanel">
+        <div class="control-group">
+            <label>Solar Constant</label>
+            <input type="range" id="solarSlider" min="0" max="2000" value="1360">
+        </div>
+        <div class="control-group">
+            <label>Temperature Scale</label>
+            <input type="range" id="tempSlider" min="0" max="100" value="50">
+        </div>
+        <div class="control-group">
+            <label>Growth Rate</label>
+            <input type="range" id="growthSlider" min="0" max="1" step="0.01" value="0.3">
+        </div>
+    </div>
+
+    <canvas id="daisyGrid"></canvas>
+
+    <script>
+		class Cell {
+			constructor(xpos, ypos, occupant = "", temp = 0.0, solarAngle = 0.0) {
+				this.xpos = xpos;
+				this.ypos = ypos;
+				this.occupant = occupant;
+				this.neighbours = [];
+				this.temp = temp;
+				this.solarAngle = solarAngle;
+			}
+		}
+
+		class Grid {
+			constructor(xmax, ymax) {
+				this.xmax = xmax;
+				this.ymax = ymax;
+				this.cells = [];
+				this.init();
+			}
+
+			init() {
+				const totalCells = this.xmax * this.ymax;
+				for (let i = 0; i < totalCells; i++) {
+					const xpos = i % this.xmax;
+					const ypos = Math.floor(i / this.xmax);
+					this.cells.push(new Cell(xpos, ypos, ""));
+				}
+
+				for (let i = 0; i < this.cells.length; i++) {
+					const cell = this.cells[i];
+					const x = cell.xpos;
+					const y = cell.ypos;
+
+					for (let dy = -1; dy <= 1; dy++) {
+						for (let dx = -1; dx <= 1; dx++) {
+							if (dx === 0 && dy === 0) continue;
+							let nx = (x + dx + this.xmax) % this.xmax;
+							let ny = y + dy;
+							if (ny >= 0 && ny < this.ymax) {
+								const neighbourIndex = ny * this.xmax + nx;
+								cell.neighbours.push(this.cells[neighbourIndex]);
+							}
+						}
+					}
+				}
+			}
+			
+			setTemperatures() {
+				for (let cell of this.cells) {
+					const normalizedX = cell.xpos / this.xmax;
+					const distanceFromCenter = Math.abs(normalizedX - 0.5) * 2;
+					cell.temp = 100 - (distanceFromCenter * 100);
+				}
+			}
+			
+			populateDaisies() {
+				for (let cell of this.cells) {
+					const whiteProb = cell.temp / 100;
+					cell.occupant = Math.random() < whiteProb ? 'W' : 'B';
+				}
+			}
+			
+			getCell(x, y) {
+				return this.cells[y * this.xmax + x];
+			}
+		}	
+		
+        const canvas = document.getElementById('daisyGrid');
+        const ctx = canvas.getContext('2d');
+        const controlsPanel = document.getElementById('controlsPanel');
+        
+        const whiteDaisy = new Image();
+        const blackDaisy = new Image();
+        
+        whiteDaisy.src = `img/white.png`;
+        blackDaisy.src = `img/black.png`;
+        
+        const heightFraction = 30;
+        let cellSize;
+        let gridInstance;
+        
+        function initCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            cellSize = canvas.height / heightFraction;
+            const gridSizeX = Math.floor(canvas.width / cellSize);
+            cellSize = canvas.width / gridSizeX;
+            const gridSizeY = Math.floor(canvas.height / cellSize);
+            gridInstance = new Grid(gridSizeX, gridSizeY);
+            gridInstance.setTemperatures();
+            gridInstance.populateDaisies();
+            drawGrid();
+        }
+        
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#eeeeee';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            for (let y = 0; y < gridInstance.ymax; y++) {
+                for (let x = 0; x < gridInstance.xmax; x++) {
+                    const cell = gridInstance.getCell(x, y);
+                    const img = cell.occupant === 'W' ? whiteDaisy : (cell.occupant === 'B' ? blackDaisy : null);
+                    
+                    const r = Math.floor(cell.temp * 2.55);
+                    const b = Math.floor((100 - cell.temp) * 2.55);
+                    const g = 200;
+                    
+                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    
+                    if (img) {
+                        const daisySize = cellSize * 0.8;
+                        const offsetX = (cellSize - daisySize) / 2;
+                        const offsetY = (cellSize - daisySize) / 2;
+                        ctx.drawImage(img, x * cellSize + offsetX, y * cellSize + offsetY, daisySize, daisySize);
+                    }
+                    
+                    ctx.strokeStyle = '#eeeeee';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                }
+            }
+        }
+        
+        Promise.all([
+            new Promise(resolve => whiteDaisy.onload = resolve),
+            new Promise(resolve => blackDaisy.onload = resolve)
+        ]).then(initCanvas);
+        
+        window.addEventListener('resize', () => {
+            initCanvas();
+        });
+        
+        canvas.addEventListener('click', () => {
+            gridInstance.populateDaisies();
+            drawGrid();
+        });
+        
+        // Toggle controls panel with C/D keys
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'c') {
+                controlsPanel.style.display = 'block';
+            } else if (e.key.toLowerCase() === 'd') {
+                controlsPanel.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
