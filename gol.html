@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>GOL OOP</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden; /* no scrollbars */
+                background: #eeeeee;
+            }
+            canvas {
+                display: block;
+                width: 100%;
+                height: 100%;
+                background: #eeeeee;
+                image-rendering: crisp-edges; /* keep cells sharp */
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="CACanvas"></canvas>
+
+        <script>
+            (function () {
+                class GameOfLife {
+                    constructor(cols, rows) {
+                        this.rows = rows;
+                        this.cols = cols;
+                        this.grid = [];
+                        for (let i = 0; i < 2; i++) {
+                            this.grid[i] = [];
+                            for (let y = 0; y < this.rows; y++) {
+                                this.grid[i][y] = [];
+                                for (let x = 0; x < this.cols; x++) {
+                                    this.grid[i][y][x] = 0;
+                                }
+                            }
+                        }
+                        this.now = 0;
+                        this.next = 1;
+                    }
+
+                    setRandom(prob = 0.5) {
+                        for (let y = 0; y < this.rows; y++) {
+                            for (let x = 0; x < this.cols; x++) {
+                                if (Math.random() < prob) {
+                                    this.grid[this.now][y][x] = 1;
+                                } else {
+                                    this.grid[this.now][y][x] = 0;
+                                }
+                            }
+                        }
+                    }
+
+                    getCellState(x, y) {
+                        return this.grid[this.now][y][x];
+                    }
+
+                    setCellStateNow(state, x, y) {
+                        this.grid[this.now][y][x] = state;
+                    }
+
+                    setCellStateNext(state, x, y) {
+                        this.grid[this.next][y][x] = state;
+                    }
+
+                    xBounds(x) {
+                        return (x + this.cols) % this.cols;
+                    }
+
+                    yBounds(y) {
+                        return (y + this.rows) % this.rows;
+                    }
+
+                    iterate() {
+                        for (let y = 0; y < this.rows; y++) {
+                            for (let x = 0; x < this.cols; x++) {
+                                let state = this.getCellState(x, y);
+                                let count = 0;
+                                for (let yy = y - 1; yy <= y + 1; yy++) {
+                                    let yyy = this.yBounds(yy);
+                                    for (let xx = x - 1; xx <= x + 1; xx++) {
+                                        let xxx = this.xBounds(xx);
+                                        count += this.getCellState(xxx, yyy);
+                                    }
+                                }
+                                count -= state; // Remove self from count
+                                this.setCellStateNext(0, x, y);
+                                if (state === 1) {
+                                    if (count === 2 || count === 3) {
+                                        this.setCellStateNext(1, x, y);
+                                    }
+                                } else {
+                                    if (count === 3) {
+                                        this.setCellStateNext(1, x, y);
+                                    }
+                                }
+                            }
+                        }
+                        [this.now, this.next] = [this.next, this.now];
+                    }
+                }
+
+                class CACanvas {
+                    constructor(canvas, ofHeight = 100) {
+                        this.canvas = canvas;
+                        this.ctx = this.canvas.getContext("2d");
+                        this.cellSize = 2;
+                        this.ofHeight = ofHeight;
+                    }
+
+                    resizeAndReset() {
+                        const width = window.innerWidth;
+                        const height = window.innerHeight;
+                        this.cellSize = Math.floor(height / this.ofHeight);
+                        this.cols = Math.floor(width / this.cellSize);
+                        this.rows = Math.floor(height / this.cellSize);
+                        this.canvas.width = this.cols * this.cellSize;
+                        this.canvas.height = this.rows * this.cellSize;
+                        this.clear("#eeeeee");
+                    }
+
+                    clear(backGround = "#eeeeee") {
+                        this.ctx.fillStyle = backGround;
+                        this.ctx.fillRect(
+                            0,
+                            0,
+                            this.canvas.width,
+                            this.canvas.height,
+                        );
+                    }
+
+                    drawSquareAt(x, y, colour = "#333333", border = false ) {
+                        this.ctx.fillStyle =colour ;
+                        this.ctx.fillRect(
+                            x * this.cellSize,
+                            y * this.cellSize,
+                            this.cellSize,
+                            this.cellSize,
+                        );
+                        if(border){
+                          this.ctx.strokeStyle = '#eeeeee';
+                          this.ctx.lineWidth = 2;
+                          this.ctx.strokeRect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize)
+                        }
+                    }
+
+                    drawImageAt(x,y,img){
+                        if (img) {
+                          const imgSize = this.cellSize * 0.8;
+                          const offsetX = (this.cellSize - imgSize) / 2;
+                          const offsetY = (this.cellSize - imgSize) / 2;
+                          this.ctx.drawImage(img, x * this.cellSize + offsetX, y * this.cellSize + offsetY, imgSize, imgSize);
+                        }
+                    }
+                }
+
+                const canvasElement = document.getElementById("CACanvas");
+                const caCanvas = new CACanvas(canvasElement, 60);
+                let gol = null;
+                let timeoutId = null;
+
+                const whiteDaisy = new Image();
+                const blackDaisy = new Image();
+
+                whiteDaisy.src = `img/white.png`;
+                blackDaisy.src = `img/black.png`;
+
+                function draw() {
+                    caCanvas.clear();
+                    for (let x = 0; x < gol.cols; x++) {
+                        for (let y = 0; y < gol.rows; y++) {
+                            if (gol.getCellState(x, y) === 1) {
+                                caCanvas.drawSquareAt(x, y,colour= "#333333",border=true);
+                               // caCanvas.drawImageAt(x,y,whiteDaisy);
+                            }
+                        }
+                    }
+                }
+
+                function handleResize() {
+                    if (timeoutId !== null) {
+                      clearTimeout(timeoutId);
+                    }
+                    caCanvas.resizeAndReset();
+                    gol = new GameOfLife(caCanvas.cols, caCanvas.rows);
+                    gol.setRandom(0.3);
+                    timeoutId = setTimeout(iterate, 500);
+                    draw();
+                }
+
+                function iterate() {
+                    gol.iterate();
+                    draw();
+                    timeoutId = setTimeout(iterate, 5);
+                }
+
+                function init() {
+                    caCanvas.resizeAndReset();
+                    window.addEventListener("resize", handleResize);
+                    handleResize();
+                }
+
+                init();
+            })();
+        </script>
+    </body>
+</html>

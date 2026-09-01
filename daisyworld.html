@@ -111,7 +111,7 @@
 					}
 				}
 			}
-			
+
 			setTemperatures() {
 				for (let cell of this.cells) {
 					const normalizedX = cell.xpos / this.xmax;
@@ -119,33 +119,57 @@
 					cell.temp = 100 - (distanceFromCenter * 100);
 				}
 			}
-			
+
 			populateDaisies() {
 				for (let cell of this.cells) {
 					const whiteProb = cell.temp / 100;
 					cell.occupant = Math.random() < whiteProb ? 'W' : 'B';
 				}
 			}
-			
+
 			getCell(x, y) {
 				return this.cells[y * this.xmax + x];
 			}
-		}	
-		
+		}
+
+        class CustomCanvas extends HTMLCanvasElement {
+            constructor(canvas) {
+              // Call the superclass constructor
+              super();
+              // Initialize the canvas element
+              this.canvas = canvas;
+              // Additional initialization code
+              this.ctx = this.canvas.getContext('2d');
+            }
+
+    // Example method to draw a rectangle
+        drawRectangle(x, y, width, height, color) {
+          this.ctx.fillStyle = color;
+          this.ctx.fillRect(x, y, width, height);
+        }
+
+    // Example method to clear the canvas
+      clearCanvas() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      }
+  }
+
+// Usage example
+
         const canvas = document.getElementById('daisyGrid');
         const ctx = canvas.getContext('2d');
         const controlsPanel = document.getElementById('controlsPanel');
-        
+
         const whiteDaisy = new Image();
         const blackDaisy = new Image();
-        
+
         whiteDaisy.src = `img/white.png`;
         blackDaisy.src = `img/black.png`;
-        
+
         const heightFraction = 30;
         let cellSize;
         let gridInstance;
-        
+
         function initCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -158,52 +182,52 @@
             gridInstance.populateDaisies();
             drawGrid();
         }
-        
+
         function drawGrid() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#eeeeee';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+
             for (let y = 0; y < gridInstance.ymax; y++) {
                 for (let x = 0; x < gridInstance.xmax; x++) {
                     const cell = gridInstance.getCell(x, y);
                     const img = cell.occupant === 'W' ? whiteDaisy : (cell.occupant === 'B' ? blackDaisy : null);
-                    
+
                     const r = Math.floor(cell.temp * 2.55);
                     const b = Math.floor((100 - cell.temp) * 2.55);
                     const g = 200;
-                    
+
                     ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
                     ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-                    
+
                     if (img) {
                         const daisySize = cellSize * 0.8;
                         const offsetX = (cellSize - daisySize) / 2;
                         const offsetY = (cellSize - daisySize) / 2;
                         ctx.drawImage(img, x * cellSize + offsetX, y * cellSize + offsetY, daisySize, daisySize);
                     }
-                    
+
                     ctx.strokeStyle = '#eeeeee';
                     ctx.lineWidth = 2;
                     ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
                 }
             }
         }
-        
+
         Promise.all([
             new Promise(resolve => whiteDaisy.onload = resolve),
             new Promise(resolve => blackDaisy.onload = resolve)
         ]).then(initCanvas);
-        
+
         window.addEventListener('resize', () => {
             initCanvas();
         });
-        
+
         canvas.addEventListener('click', () => {
             gridInstance.populateDaisies();
             drawGrid();
         });
-        
+
         // Toggle controls panel with C/D keys
         document.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'c') {

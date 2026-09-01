@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>CA Canvas template</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden; /* no scrollbars */
+                background: #eeeeee;
+            }
+            canvas {
+                display: block;
+                width: 100%;
+                height: 100%;
+                background: #eeeeee;
+                image-rendering: crisp-edges; /* keep cells sharp */
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="CACanvas"></canvas>
+
+        <script>
+            (function() {
+                class CACanvas {
+                    constructor(canvas,ofHeight=100) {
+                        this.canvas = canvas;
+                        this.ctx = this.canvas.getContext('2d');
+                        this.cellSize = 2;
+                        this.ofHeight =ofHeight;
+                    }
+
+                    resizeAndReset() {
+                        const width = window.innerWidth;
+                        const height = window.innerHeight;
+                        this.cellSize = Math.floor(height/this.ofHeight)
+                        this.cols = Math.floor(width / this.cellSize);
+                        this. rows = Math.floor(height / this.cellSize);
+                        this.canvas.width = this.cols * this.cellSize;
+                        this.canvas.height = this.rows * this.cellSize;
+                        this.clear('#eeeeee')
+                    }
+
+                    clear(backGround = '#eeeeee'){
+                      this.ctx.fillStyle = backGround;
+                      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                    }
+
+                    drawSquareAt(x,y,colour){
+                      this.ctx.fillStyle = '#333333';
+                      this.ctx.fillRect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
+                    }
+                }
+
+                const canvasElement = document.getElementById('CACanvas');
+                const caCanvas = new CACanvas(canvasElement,10);
+
+                function handleResize() {
+                    caCanvas.resizeAndReset();
+                }
+
+                function init() {
+                    caCanvas.resizeAndReset();
+                    window.addEventListener('resize', handleResize);
+                    caCanvas.drawSquareAt(1,1);
+                }
+
+                init();
+            })();
+        </script>
+    </body>
+</html>
