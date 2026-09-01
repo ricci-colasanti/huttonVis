@@ -175,13 +175,24 @@
                 whiteDaisy.src = `img/white.png`;
                 blackDaisy.src = `img/black.png`;
 
+                function loadImage(img) {
+                    return new Promise(function (resolve, reject) {
+                        img.onload = function () {
+                            resolve(img);
+                        };
+                        img.onerror = function () {
+                            reject(new Error("Failed to load " + img.src));
+                        };
+                    });
+                }
+
                 function draw() {
                     caCanvas.clear();
                     for (let x = 0; x < gol.cols; x++) {
                         for (let y = 0; y < gol.rows; y++) {
                             if (gol.getCellState(x, y) === 1) {
                                 caCanvas.drawSquareAt(x, y,colour= "#333333",border=true);
-                               // caCanvas.drawImageAt(x,y,whiteDaisy);
+                                caCanvas.drawImageAt(x,y,whiteDaisy);
                             }
                         }
                     }
@@ -204,7 +215,13 @@
                     timeoutId = setTimeout(iterate, 5);
                 }
 
-                function init() {
+                async function init() {
+                    try {
+                        await Promise.all([loadImage(whiteDaisy), loadImage(blackDaisy)]);
+                    } catch (err) {
+                        console.error(err.message);
+                        return;
+                    }
                     caCanvas.resizeAndReset();
                     window.addEventListener("resize", handleResize);
                     handleResize();
