@@ -115,22 +115,23 @@
                 caCanvas.clear();
                 for (let y = 0; y < gridInstance.rows; y++) {
                     for (let x = 0; x < gridInstance.cols; x++) {
-                        const cell = gridInstance.getCell(y,x)
-                        const img =
-                            cell.occupant === "W"
-                                ? whiteDaisy
-                                : cell.occupant === "B"
-                                  ? blackDaisy
-                                  : null;
-
+                        const cell = gridInstance.getCell(y,x);
+                        const occupant = cell.getStateNow();
+                        let img =null;
+                        if (occupant ==="W"){
+                          img = whiteDaisy;
+                        }
+                        if (occupant ==="B"){
+                          img = blackDaisy;
+                        }
                         const r = Math.floor(cell.temp * 2.55);
                         const b = Math.floor((100 - cell.temp) * 2.55);
                         const g = 200;
-
+                        const colour = `rgb(${r}, ${g}, ${b})`
                         caCanvas.drawSquareAt(
                             x,
                             y,
-                            `rgb(${r}, ${g}, ${b})`,
+                            colour,
                             true,
                         );
                         caCanvas.drawImageAt(x, y, img);
@@ -160,7 +161,6 @@
                 window.addEventListener("resize", handleResize);
                 handleResize();
             }
-
             init();
         </script>
     </body>

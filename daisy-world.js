@@ -1,8 +1,11 @@
 export class Cell {
+  static now =  0;
+  static next = 1;
+
   constructor(xpos, ypos, occupant = "", temp = 0.0, solarAngle = 0.0) {
     this.xpos = xpos;
     this.ypos = ypos;
-    this.occupant = occupant;
+    this.occupant = ["",""];
     this.neighbours = [];
     this.temp = temp;
     this.solarAngle = solarAngle;
@@ -11,6 +14,14 @@ export class Cell {
   addNeighbour(cell) {
     this.neighbours.push(cell);
   }
+
+  getStateNow() {
+    return this.occupant[Cell.now];
+  }
+  setStateNow(state) {
+    this.occupant[Cell.now] = state;
+  }
+
 }
 
 export default class Grid {
@@ -69,7 +80,7 @@ export default class Grid {
       for (let x = 0; x < this.cols; x++) {
         const cell = this.cells[y][x];
         const whiteProb = cell.temp / 100;
-        cell.occupant = Math.random() < whiteProb ? "W" : "B";
+        cell.setStateNow(Math.random() < whiteProb ? "W" : "B");
       }
     }
   }
