@@ -128,6 +128,8 @@
             let cellSize;
             let gridInstance;
             let dataPanelVisible = false;
+            let toggle = false;
+            let solarLuminosity = 0.1;
 
             // DOM references
             const dataPanel = document.getElementById("dataPanel");
@@ -159,10 +161,7 @@
                         count++;
                     }
                 }
-                const avgTemp = totalTemp / count;
-
-                // Get solar luminosity from grid
-                const solarLuminosity = gridInstance.solarLuminosity || 1.0;
+                const avgTemp = gridInstance.globalTemperature;
 
                 // Update displays
                 tempDisplay.textContent = avgTemp.toFixed(1) + " \u00B0C";
@@ -174,9 +173,11 @@
                 if (dataPanelVisible) {
                     dataPanel.classList.add("visible");
                     updateDataPanel();
+                    toggle = true;
                     toggleHint.classList.add("hidden");
                 } else {
                     dataPanel.classList.remove("visible");
+                    toggle = false;
                     toggleHint.classList.remove("hidden");
                 }
             }
@@ -217,15 +218,27 @@
             function handleResize() {
                 caCanvas.resizeAndReset();
                 gridInstance = new Grid(caCanvas.cols, caCanvas.rows);
-                gridInstance.setTemperature(0.1);
+                gridInstance.setTemperature(solarLuminosity);
                 gridInstance.populateDaisies();
                 drawGrid();
+                updateDataPanel();
             }
 
             function handleKeyDown(event) {
                 if (event.key === "d" || event.key === "D") {
                     event.preventDefault();
                     toggleDataPanel();
+                }
+                if (toggle && event.key === "ArrowUp"){
+                  solarLuminosity+=.01
+                  handleResize();
+                }
+                if (toggle && event.key === "ArrowDown"){
+                  solarLuminosity-=.01
+                  if(solarLuminosity<0.01){
+                    solarLuminosity=0.01
+                  }
+                  handleResize();
                 }
             }
 

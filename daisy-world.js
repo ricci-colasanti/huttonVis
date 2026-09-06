@@ -46,6 +46,26 @@ export class Cell {
     return localHeating;
   }
 
+  getDeathProbability(temperature, optimumTemp, sigma, maxDeathRate) {
+      const diff = Math.abs(temperature - optimumTemp);
+      // Normalize diff to [0, 1] based on sigma
+      const normalizedDiff = Math.min(diff / (3 * sigma), 1);
+      // Probability increases with distance from optimum
+      return maxDeathRate * Math.pow(normalizedDiff, 1.5);
+  }
+
+  getGerminationProbability(temperature, optimumTemp, sigma, maxGerminationRate) {
+      // Calculate the difference from optimum temperature
+      const diff = temperature - optimumTemp;
+
+      // Gaussian (normal distribution) function
+      // Returns probability between 0 and maxGerminationRate
+      const gaussian = Math.exp(-(diff * diff) / (2 * sigma * sigma));
+
+      // Germination is highest at optimum, decreasing as temperature deviates
+      return maxGerminationRate * gaussian;
+  }
+
   setTemperature(solarLuminosity) {
     const sumTemp = this.neighbours.reduce(
       (sum, cell) => sum + cell.getLocalHeating(solarLuminosity),
@@ -117,12 +137,12 @@ export default class Grid {
     let averagTemperature =0.0
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
-        this.cells[y][x].setTemperature(solarLuminosity);
+        this.cells[y][x].setTemperature(solarLuminosity,this.globalTemperature);
         averagTemperature += this.cells[y][x].temperature;
       }
     }
-    averagTemperature=(averagTemperature/(this.rows*this.cols))
-    console.log(averagTemperature)
+    averagTemperature = (averagTemperature / (this.rows * this.cols));
+    this.globalTemperature = averagTemperature;
   }
 
   populateDaisies() {
