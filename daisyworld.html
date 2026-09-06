@@ -19,68 +19,96 @@
                 width: 100%;
                 height: 100%;
             }
-            /* Overlay panel */
-            #controlsPanel {
+            /* Data Panel */
+            #dataPanel {
                 position: absolute;
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                background: rgba(255, 255, 255, 0.95);
-                padding: 20px;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                background: rgba(255, 255, 255, 0.7);
+                backdrop-filter: blur(4px);
+                padding: 40px;
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
                 z-index: 100;
+                width: 50vh;
+                height: 50vh;
+                max-height: 50vh;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                font-family: Arial, Helvetica, sans-serif;
                 display: none;
-                min-width: 300px;
             }
-            .control-group {
-                margin-bottom: 15px;
+
+            #dataPanel.visible {
+                display: flex;
             }
-            label {
-                display: block;
-                margin-bottom: 5px;
-                font-weight: bold;
-            }
-            input[type="range"] {
+            #dataPanel .data-item {
                 width: 100%;
+                padding: 10px 0;
+            }
+            #dataPanel .label {
+                font-weight: bold;
+                opacity: 0.7;
+                font-size: clamp(14px, 3vh, 240px);
+            }
+            #dataPanel .value {
+                font-size: clamp(24px, 6vh, 240px);
+                font-weight: 300;
+                letter-spacing: 1px;
+            }
+            #dataPanel .value.temperature {
+                color: #e74c3c;
+            }
+            #dataPanel .value.luminosity {
+                color: #f39c12;
+            }
+            /* Hide scrollbar */
+            #dataPanel::-webkit-scrollbar {
+                display: none;
+            }
+            #dataPanel {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            /* Toggle hint */
+            #toggleHint {
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: rgba(0, 0, 0, 0.3);
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 14px;
+                z-index: 50;
+                pointer-events: none;
+                transition: opacity 0.5s;
+                background: rgba(255, 255, 255, 0.5);
+                padding: 6px 14px;
+                border-radius: 20px;
+            }
+            #toggleHint.hidden {
+                opacity: 0;
             }
         </style>
     </head>
     <body>
-        <!-- Controls Panel -->
-        <div id="controlsPanel">
-            <div class="control-group">
-                <label>Solar Constant</label>
-                <input
-                    type="range"
-                    id="solarSlider"
-                    min="0"
-                    max="2000"
-                    value="1360"
-                />
+        <!-- Data Panel -->
+        <div id="dataPanel">
+            <div class="data-item">
+                <div class="label">GLOBAL TEMPERATURE</div>
+                <div class="value temperature" id="tempDisplay">0.0 &deg;C</div>
             </div>
-            <div class="control-group">
-                <label>Temperature Scale</label>
-                <input
-                    type="range"
-                    id="tempSlider"
-                    min="0"
-                    max="100"
-                    value="50"
-                />
-            </div>
-            <div class="control-group">
-                <label>Growth Rate</label>
-                <input
-                    type="range"
-                    id="growthSlider"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value="0.3"
-                />
+            <div class="data-item">
+                <div class="label">SOLAR LUMINOSITY</div>
+                <div class="value luminosity" id="luminosityDisplay">0.00</div>
             </div>
         </div>
+
+        <!-- Toggle hint -->
+        <div id="toggleHint">press <strong>D</strong> to toggle data</div>
 
         <canvas id="daisyGrid"></canvas>
 
@@ -94,11 +122,18 @@
             const whiteDaisy = new Image();
             const blackDaisy = new Image();
 
-            whiteDaisy.src = `img/white.png`;
-            blackDaisy.src = `img/black.png`;
+            whiteDaisy.src = "img/white.png";
+            blackDaisy.src = "img/black.png";
 
             let cellSize;
             let gridInstance;
+            let dataPanelVisible = false;
+
+            // DOM references
+            const dataPanel = document.getElementById("dataPanel");
+            const tempDisplay = document.getElementById("tempDisplay");
+            const luminosityDisplay = document.getElementById("luminosityDisplay");
+            const toggleHint = document.getElementById("toggleHint");
 
             function loadImage(img) {
                 return new Promise(function (resolve, reject) {
@@ -111,47 +146,94 @@
                 });
             }
 
+            function updateDataPanel() {
+                if (!gridInstance) return;
+
+                // Calculate average temperature
+                let totalTemp = 0;
+                let count = 0;
+                for (let y = 0; y < gridInstance.rows; y++) {
+                    for (let x = 0; x < gridInstance.cols; x++) {
+                        const cell = gridInstance.getCell(y, x);
+                        totalTemp += cell.temperature;
+                        count++;
+                    }
+                }
+                const avgTemp = totalTemp / count;
+
+                // Get solar luminosity from grid
+                const solarLuminosity = gridInstance.solarLuminosity || 1.0;
+
+                // Update displays
+                tempDisplay.textContent = avgTemp.toFixed(1) + " \u00B0C";
+                luminosityDisplay.textContent = solarLuminosity.toFixed(3);
+            }
+
+            function toggleDataPanel() {
+                dataPanelVisible = !dataPanelVisible;
+                if (dataPanelVisible) {
+                    dataPanel.classList.add("visible");
+                    updateDataPanel();
+                    toggleHint.classList.add("hidden");
+                } else {
+                    dataPanel.classList.remove("visible");
+                    toggleHint.classList.remove("hidden");
+                }
+            }
+
             function drawGrid() {
                 caCanvas.clear();
                 for (let y = 0; y < gridInstance.rows; y++) {
                     for (let x = 0; x < gridInstance.cols; x++) {
-                        const cell = gridInstance.getCell(y,x);
+                        const cell = gridInstance.getCell(y, x);
                         const occupant = cell.getStateNow();
-                        let img =null;
-                        if (occupant ==="W"){
-                          img = whiteDaisy;
+                        let img = null;
+                        if (occupant === "W") {
+                            img = whiteDaisy;
                         }
-                        if (occupant ==="B"){
-                          img = blackDaisy;
+                        if (occupant === "B") {
+                            img = blackDaisy;
                         }
-                        const r = Math.floor(cell.temp * 2.55);
-                        const b = Math.floor((100 - cell.temp) * 2.55);
+                        const r = Math.floor(((cell.temperature + 20) / 100.0) * 255);
+                        const b = Math.floor((1.0 - ((cell.temperature + 20) / 100.0)) * 255);
                         const g = 200;
-                        const colour = `rgb(${r}, ${g}, ${b})`
+                        const colour = "rgb(" + r + ", " + g + ", " + b + ")";
                         caCanvas.drawSquareAt(
                             x,
                             y,
                             colour,
-                            true,
+                            true
                         );
                         caCanvas.drawImageAt(x, y, img);
                     }
+                }
+
+                // Update data panel if visible
+                if (dataPanelVisible) {
+                    updateDataPanel();
                 }
             }
 
             function handleResize() {
                 caCanvas.resizeAndReset();
                 gridInstance = new Grid(caCanvas.cols, caCanvas.rows);
-                gridInstance.setTemperatures();
+                gridInstance.setTemperature(0.1);
                 gridInstance.populateDaisies();
                 drawGrid();
+            }
+
+            function handleKeyDown(event) {
+                if (event.key === "d" || event.key === "D") {
+                    event.preventDefault();
+                    toggleDataPanel();
+                }
             }
 
             async function init() {
                 try {
                     await Promise.all([
                         loadImage(whiteDaisy),
-                        loadImage(blackDaisy),
+                        loadImage(blackDaisy)
                     ]);
                 } catch (err) {
                     console.error(err.message);
@@ -159,7 +241,18 @@
                 }
                 caCanvas.resizeAndReset();
                 window.addEventListener("resize", handleResize);
+                window.addEventListener("keydown", handleKeyDown);
                 handleResize();
+
+                // Auto-hide hint after 5 seconds
+                setTimeout(function() {
+                    if (!dataPanelVisible) {
+                        toggleHint.style.opacity = "0";
+                        setTimeout(function() {
+                            toggleHint.style.display = "none";
+                        }, 500);
+                    }
+                }, 5000);
             }
             init();
         </script>

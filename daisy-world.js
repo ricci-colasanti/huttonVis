@@ -1,14 +1,17 @@
 export class Cell {
-  static now =  0;
+  static now = 0;
   static next = 1;
+  static albedoOfSurface = 0.4;
+  static albedoOfBlack = 0.25;
+  static albedoOfWhite = 0.75;
 
-  constructor(xpos, ypos, occupant = "", temp = 0.0, solarAngle = 0.0) {
+  constructor(xpos, ypos) {
     this.xpos = xpos;
     this.ypos = ypos;
-    this.occupant = ["",""];
+    this.occupant = ["", ""];
     this.neighbours = [];
-    this.temp = temp;
-    this.solarAngle = solarAngle;
+    this.temperature = 0.0;
+    this.solarAngle = 0.0;
   }
 
   addNeighbour(cell) {
@@ -18,10 +21,40 @@ export class Cell {
   getStateNow() {
     return this.occupant[Cell.now];
   }
+
   setStateNow(state) {
     this.occupant[Cell.now] = state;
   }
 
+  getLocalHeating(solarLuminosity) {
+    let albedo = Cell.albedoOfSurface;
+    if (this.occupant[Cell.now] === "B") {
+      albedo = Cell.albedoOfBlack;
+    }
+    if (this.occupant[Cell.now] === "W") {
+      albedo = Cell.albedoOfWhite;
+    }
+    const absorbedLuminosity = (1 - albedo) * solarLuminosity * this.solarAngle;
+    let localHeating = 80;
+    if (absorbedLuminosity > 0) {
+      if (absorbedLuminosity > 0.01) {
+          localHeating = 21.72 * Math.log(absorbedLuminosity) + 80;
+      } else {
+          localHeating = -20;
+      }
+    }
+    return localHeating;
+  }
+
+  setTemperature(solarLuminosity) {
+    const sumTemp = this.neighbours.reduce(
+      (sum, cell) => sum + cell.getLocalHeating(solarLuminosity),
+      0,
+    );
+    const averageTemp = sumTemp / this.neighbours.length;
+    this.temperature =
+      (this.getLocalHeating(solarLuminosity) + averageTemp) / 2;
+  }
 }
 
 export default class Grid {
@@ -29,6 +62,7 @@ export default class Grid {
     this.cols = cols;
     this.rows = rows;
     this.cells = [];
+    this.globalTemperature = 0.0;
     this.init();
   }
 
@@ -47,7 +81,11 @@ export default class Grid {
         this.cells[y][x] = new Cell(x, y, "");
       }
     }
+    this.setNeighbours();
+    this.setSolarAngle();
+  }
 
+  setNeighbours() {
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
         for (let yy = y - 1; yy <= y + 1; yy++) {
@@ -64,22 +102,34 @@ export default class Grid {
     }
   }
 
-  setTemperatures() {
+  setSolarAngle() {
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
         const cell = this.cells[y][x];
         const normalizedX = cell.xpos / this.cols;
-        const distanceFromCenter = Math.abs(normalizedX - 0.5) * 2;
-        cell.temp = 100 - distanceFromCenter * 100;
+        const latitude = (normalizedX - 0.5) * Math.PI;
+        cell.solarAngle = Math.cos(latitude);
       }
     }
+  }
+
+  setTemperature(solarLuminosity) {
+    let averagTemperature =0.0
+    for (let y = 0; y < this.rows; y++) {
+      for (let x = 0; x < this.cols; x++) {
+        this.cells[y][x].setTemperature(solarLuminosity);
+        averagTemperature += this.cells[y][x].temperature;
+      }
+    }
+    averagTemperature=(averagTemperature/(this.rows*this.cols))
+    console.log(averagTemperature)
   }
 
   populateDaisies() {
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
         const cell = this.cells[y][x];
-        const whiteProb = cell.temp / 100;
+        const whiteProb = cell.temperature / 100;
         cell.setStateNow(Math.random() < whiteProb ? "W" : "B");
       }
     }
