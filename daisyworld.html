@@ -79,18 +79,38 @@
                 bottom: 20px;
                 left: 50%;
                 transform: translateX(-50%);
-                color: rgba(0, 0, 0, 0.3);
+                color: rgba(0, 0, 0, 0.6);
                 font-family: Arial, Helvetica, sans-serif;
                 font-size: 14px;
                 z-index: 50;
                 pointer-events: none;
                 transition: opacity 0.5s;
-                background: rgba(255, 255, 255, 0.5);
+                background: rgba(255, 255, 255, 0.8);
                 padding: 6px 14px;
                 border-radius: 20px;
             }
             #toggleHint.hidden {
                 opacity: 0;
+            }
+            /* Speed control hint */
+            #speedHint {
+                position: absolute;
+                bottom: 60px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: rgba(0, 0, 0, 0.8);
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 12px;
+                z-index: 50;
+                pointer-events: none;
+                background: rgba(255, 255, 255, 0.8);
+                padding: 4px 12px;
+                border-radius: 16px;
+                opacity: 0;
+                transition: opacity 0.8s;
+            }
+            #speedHint.visible {
+                opacity: 1;
             }
         </style>
     </head>
@@ -109,6 +129,9 @@
 
         <!-- Toggle hint -->
         <div id="toggleHint">press <strong>D</strong> to toggle data</div>
+
+        <!-- Speed hint -->
+        <div id="speedHint"><strong>SPACE</strong> to pause/resume &bull; <strong>I</strong> to step once</div>
 
         <canvas id="daisyGrid"></canvas>
 
@@ -129,13 +152,17 @@
             let gridInstance;
             let dataPanelVisible = false;
             let toggle = false;
-            let solarLuminosity = 0.1;
+            let solarLuminosity = 1.0;
+            let running = true;
+            let animationId = null;
+            let speed = 100; // milliseconds per iteration
 
             // DOM references
             const dataPanel = document.getElementById("dataPanel");
             const tempDisplay = document.getElementById("tempDisplay");
             const luminosityDisplay = document.getElementById("luminosityDisplay");
             const toggleHint = document.getElementById("toggleHint");
+            const speedHint = document.getElementById("speedHint");
 
             function loadImage(img) {
                 return new Promise(function (resolve, reject) {
@@ -218,10 +245,46 @@
             function handleResize() {
                 caCanvas.resizeAndReset();
                 gridInstance = new Grid(caCanvas.cols, caCanvas.rows);
-                gridInstance.setTemperature(solarLuminosity);
+                gridInstance.iterate(solarLuminosity);
                 gridInstance.populateDaisies();
                 drawGrid();
                 updateDataPanel();
+            }
+
+            function iterate() {
+                if (!gridInstance) return;
+                gridInstance.iterate(solarLuminosity);
+                drawGrid();
+                updateDataPanel();
+            }
+
+            // Time loop
+            function timeLoop() {
+                if (running) {
+                    iterate();
+                }
+                // Schedule next iteration
+                animationId = setTimeout(timeLoop, speed);
+            }
+
+            // Start/stop the time loop
+            function toggleRunning() {
+                running = !running;
+                if (running) {
+                    speedHint.textContent = "▶ RUNNING  |  SPACE to pause  |  I to step once";
+                    speedHint.classList.add("visible");
+                    // Restart the loop if it was stopped
+                    if (!animationId) {
+                        timeLoop();
+                    }
+                } else {
+                    speedHint.textContent = "⏸ PAUSED  |  SPACE to resume  |  I to step once";
+                    speedHint.classList.add("visible");
+                    if (animationId) {
+                        clearTimeout(animationId);
+                        animationId = null;
+                    }
+                }
             }
 
             function handleKeyDown(event) {
@@ -229,16 +292,51 @@
                     event.preventDefault();
                     toggleDataPanel();
                 }
-                if (toggle && event.key === "ArrowUp"){
-                  solarLuminosity+=.01
-                  handleResize();
+                if (toggle && event.key === "ArrowUp") {
+                    event.preventDefault();
+                    solarLuminosity += 0.01;
+                    iterate();
                 }
-                if (toggle && event.key === "ArrowDown"){
-                  solarLuminosity-=.01
-                  if(solarLuminosity<0.01){
-                    solarLuminosity=0.01
-                  }
-                  handleResize();
+                if (toggle && event.key === "ArrowDown") {
+                    event.preventDefault();
+                    solarLuminosity -= 0.01;
+                    if (solarLuminosity < 0.01) {
+                        solarLuminosity = 0.01;
+                    }
+                    iterate();
+                }
+                if (event.key === "i" || event.key === "I") {
+                    event.preventDefault();
+                    iterate();
+                }
+                if (event.key === " " || event.key === "Space") {
+                    event.preventDefault();
+                    toggleRunning();
+                }
+                // Speed control: [ = slower, ] = faster
+                if (event.key === "[") {
+                    event.preventDefault();
+                    speed = Math.min(speed + 50, 1000);
+                    if (running) {
+                        // Restart loop with new speed
+                        if (animationId) {
+                            clearTimeout(animationId);
+                            animationId = null;
+                        }
+                        timeLoop();
+                    }
+                }
+                if (event.key === "]") {
+                    event.preventDefault();
+                    speed = Math.max(speed - 50, 50);
+                    if (running) {
+                        // Restart loop with new speed
+                        if (animationId) {
+                            clearTimeout(animationId);
+                            animationId = null;
+                        }
+                        timeLoop();
+                    }
                 }
             }
 
@@ -256,6 +354,15 @@
                 window.addEventListener("resize", handleResize);
                 window.addEventListener("keydown", handleKeyDown);
                 handleResize();
+
+                // Show speed hint
+                speedHint.classList.add("visible");
+                setTimeout(() => {
+                    speedHint.classList.remove("visible");
+                }, 5000);
+
+                // Start the time loop
+                timeLoop();
 
                 // Auto-hide hint after 5 seconds
                 setTimeout(function() {
